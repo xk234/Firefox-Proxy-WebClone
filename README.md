@@ -35,10 +35,10 @@ This project mimics the look and feel of a modern Firefox browser entirely withi
 * **Status Bar:** A dedicated bottom bar showing "Loading..." or "Ready" states.
 
 ### ⚙️ Under the Hood (Technical Features)
-* **CORS Bypassing via Proxy Racing:** To load external sites inside iframes without X-Frame-Options blocking them, the script races three different public proxies (`allorigins`, `corsproxy`, `codetabs`). The first to return valid HTML content wins.
-* **`srcdoc` Injection & Base Tag Fixes:** Instead of just setting an iframe's `src`, the browser fetches the raw HTML, intelligently injects a `<base>` tag (so relative links and assets load correctly), and renders it via `srcdoc` with proper sandboxing.
+* **Wisp Networking:** Navigation and proxied page `fetch()` calls use `libcurl.js` over a GX-derived pool of 14 configurable Wisp relays. The manager remembers the preferred/fastest relay, tracks per-host latency and failures, and cools down failed relay/host pairs.
+* **`srcdoc` Injection & Wisp Bridge:** The browser fetches HTML over Wisp, injects a `<base>` tag, and renders it in a sandboxed `srcdoc` iframe. Link clicks, GET forms, and page `fetch()` requests are sent back to the parent browser for Wisp-backed handling.
 * **Smart Omnibox (URL Normalizer):** Type a domain (e.g., `github.com`), a full URL, or just a search query. The script automatically detects the format and either prepends `https://` or routes the query to a Bing search.
-* **Graceful Error Handling:** If all proxies time out or fail to fetch a site, the browser renders a custom, themed "Secure Connection Failed" internal page.
+* **Graceful Error Handling:** If the Wisp runtime or all eligible relays fail, the browser renders a custom, themed connection error page.
 
 ## 🚀 Getting Started
 
@@ -59,10 +59,17 @@ Since this is built with vanilla web technologies, there are no build steps, bun
 
 ## ⚠️ Limitations & Known Issues
 
-* **Proxy Reliability:** Because this relies on free public CORS proxies, loading speeds are dependent on their uptime. Some highly secure sites (like Google or banking sites) may still fail to load due to strict proxy-blocking or complex single-page-app architectures.
-* **Iframe Sandboxing:** For security, the injected iframes are sandboxed. While scripts and forms are allowed, certain complex pop-ups or top-level navigations might be restricted.
+* **Relay and runtime availability:** The GX relay list is a historical default pool, not a guarantee that every relay is online today. `libcurl.js` 0.7.4 and its WASM file are loaded from pinned jsDelivr URLs; the browser therefore needs access to that CDN as well as at least one reachable Wisp relay. Use **Wisp Relay Settings** to pin a preferred relay or restore the GX pool.
+* **Iframe Sandboxing:** Pages run in an opaque-origin sandbox. Link navigation, GET forms, and Fetch API calls are bridged through Wisp, but sites relying heavily on XMLHttpRequest, WebSockets, service workers, cross-window integrations, POST form navigation, or other browser APIs may still need additional compatibility work.
 --
 ## 📜 License
 
 This project is licensed under the [GNU General Public License v2.0](LICENSE). 
 *Note: This is a clone and is not affiliated with Mozilla.*
+
+
+## Wisp runtime and licensing
+
+The GX-derived relay manager is in `wisp-manager.js`. It pins the upstream `libcurl.js` 0.7.4 browser runtime and WASM through jsDelivr rather than copying the 2 MB GX inline bundle into this repository. The upstream LGPL-3.0-or-later notice and full license are included in `THIRD_PARTY_NOTICES.md` and `LICENSES/libcurl.js-LICENSE`.
+
+The public relay list is adapted from GX and should be treated as best-effort. A successful WebSocket handshake does not guarantee that a relay can proxy a real HTTPS request from this deployment origin.
